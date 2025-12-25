@@ -6,145 +6,42 @@
     <title>WiseLife 打卡系統</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        :root {
-            --primary-color: #06C755; /* LINE Green */
-            --error-color: #FF4B4B;
-            --bg-color: #F4F6F9;
-            --card-bg: #ffffff;
-            --text-color: #333333;
-            --sub-text: #888888;
-        }
+        :root { --primary: #06C755; --error: #FF4B4B; --warning: #FF9F00; --bg: #F4F6F9; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #333; }
+        .card { background: #fff; width: 85%; max-width: 400px; padding: 40px 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); text-align: center; }
+        
+        /* 動畫圖示 */
+        .icon-box { height: 80px; margin-bottom: 20px; display: flex; justify-content: center; align-items: center; font-size: 60px; }
+        .spinner { width: 50px; height: 50px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+        .success { color: var(--primary); display: none; animation: popIn 0.5s; }
+        .error { color: var(--error); display: none; animation: shake 0.5s; }
+        .warning { color: var(--warning); display: none; animation: popIn 0.5s; }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            color: var(--text-color);
-        }
-
-        .card {
-            background: var(--card-bg);
-            width: 85%;
-            max-width: 400px;
-            padding: 40px 30px;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-
-        /* ICON 動畫區 */
-        .icon-container {
-            height: 80px;
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        /* 讀取圈圈 */
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid var(--primary-color);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        /* 成功勾勾 (預設隱藏) */
-        .success-icon {
-            display: none;
-            color: var(--primary-color);
-            font-size: 60px;
-            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-
-        /* 失敗叉叉 (預設隱藏) */
-        .error-icon {
-            display: none;
-            color: var(--error-color);
-            font-size: 60px;
-            animation: shake 0.5s;
-        }
-
-        h2 { margin: 0 0 10px 0; font-size: 24px; font-weight: 700; }
-        p { margin: 0 0 30px 0; color: var(--sub-text); font-size: 14px; }
-
-        /* 進度步驟條 */
-        .steps {
-            text-align: left;
-            margin-top: 20px;
-            border-top: 1px solid #eee;
-            padding-top: 20px;
-        }
-
-        .step-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 12px;
-            opacity: 0.4;
-            transition: opacity 0.3s;
-        }
-
-        .step-item.active { opacity: 1; font-weight: bold; }
-        .step-item.done { opacity: 1; color: var(--primary-color); }
-
-        .dot {
-            width: 10px;
-            height: 10px;
-            background: #ddd;
-            border-radius: 50%;
-            margin-right: 15px;
-            transition: background 0.3s;
-        }
-
-        .step-item.active .dot { background: var(--primary-color); box-shadow: 0 0 0 3px rgba(6, 199, 85, 0.2); }
-        .step-item.done .dot { background: var(--primary-color); }
-
-        /* 動畫 Keyframes */
+        h2 { margin: 0 0 10px 0; font-size: 22px; }
+        p { margin: 0 0 20px 0; color: #888; font-size: 14px; line-height: 1.5; white-space: pre-line; } /* pre-line 讓換行符號生效 */
+        
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes popIn { 0% { transform: scale(0); } 80% { transform: scale(1.1); } 100% { transform: scale(1); } }
         @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
-
     </style>
 </head>
 <body>
 
     <div class="card">
-        <div class="icon-container">
+        <div class="icon-box">
             <div class="spinner" id="spinner"></div>
-            <div class="success-icon" id="successIcon">✓</div>
-            <div class="error-icon" id="errorIcon">✕</div>
+            <div class="success" id="iconSuccess">✓</div>
+            <div class="error" id="iconError">✕</div>
+            <div class="warning" id="iconWarning">!</div>
         </div>
 
-        <h2 id="title">打卡準備中...</h2>
-        <p id="subtitle">請稍候，系統正在處理您的請求</p>
-
-        <div class="steps">
-            <div class="step-item active" id="step1">
-                <div class="dot"></div>
-                <span>1. 初始化系統</span>
-            </div>
-            <div class="step-item" id="step2">
-                <div class="dot"></div>
-                <span>2. 取得 GPS 定位</span>
-            </div>
-            <div class="step-item" id="step3">
-                <div class="dot"></div>
-                <span>3. 上傳打卡資料</span>
-            </div>
-        </div>
+        <h2 id="title">系統連線中...</h2>
+        <p id="msg">正在確認您的位置與身份</p>
     </div>
 
     <script>
         // --- 設定區 ---
         const LIFF_ID = "2008773653-mSfZM2jC"; // 你的 LIFF ID
-        // 你的 n8n 正式網址
         const N8N_URL = "https://wiselife.zeabur.app/webhook/31ef8052-3ce3-4ca0-893a-71da98525654"; 
         
         // --- 變數區 ---
@@ -152,41 +49,27 @@
         const actionType = urlParams.get('type') || 'auto';
         
         const uiTitle = document.getElementById('title');
-        const uiSubtitle = document.getElementById('subtitle');
+        const uiMsg = document.getElementById('msg');
         const uiSpinner = document.getElementById('spinner');
-        const uiSuccess = document.getElementById('successIcon');
-        const uiError = document.getElementById('errorIcon');
 
-        // 設定標題文字
-        if (actionType === 'clock_in') {
-            uiTitle.innerText = "☀️ 上班打卡中";
-        } else if (actionType === 'clock_out') {
-            uiTitle.innerText = "🌙 下班打卡中";
-        } else {
-            uiTitle.innerText = "📍 自動打卡中";
-        }
+        // 設定初始標題
+        if (actionType === 'clock_in') uiTitle.innerText = "☀️ 正在打上班卡";
+        else if (actionType === 'clock_out') uiTitle.innerText = "🌙 正在打下班卡";
+        else uiTitle.innerText = "📍 自動打卡中";
 
-        // --- 核心邏輯 ---
         async function main() {
             try {
-                // Step 1: 初始化
-                updateStep(1);
+                // 1. 初始化
                 await liff.init({ liffId: LIFF_ID });
-                
-                if (!liff.isLoggedIn()) {
-                    liff.login();
-                    return;
-                }
+                if (!liff.isLoggedIn()) { liff.login(); return; }
 
-                // Step 2: 定位
-                updateStep(2);
-                uiSubtitle.innerText = "正在向衛星取得您的精確位置...";
-                
+                uiMsg.innerText = "正在取得 GPS 定位...";
+
+                // 2. 定位
                 navigator.geolocation.getCurrentPosition(async (pos) => {
-                    // Step 3: 傳送
-                    updateStep(3);
-                    uiSubtitle.innerText = "正在寫入資料庫...";
+                    uiMsg.innerText = "正在與伺服器通訊...";
 
+                    // 3. 呼叫 n8n (後端判斷)
                     const response = await fetch(N8N_URL, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
@@ -199,58 +82,89 @@
                         })
                     });
 
-                    if (response.ok) {
-                        showSuccess();
-                    } else {
-                        throw new Error("伺服器回應錯誤");
-                    }
-                    
+                    // 4. 解析 n8n 回傳的判決 (JSON)
+                    const result = await response.json(); 
+                    // result 格式: { status: "success/error/warning", message: "...", lat: ..., lng: ... }
+
+                    // 5. 根據判決執行動作
+                    handleResult(result);
+
                 }, (err) => {
-                    showError("定位失敗", "請至手機設定開啟 GPS 權限");
-                }, { enableHighAccuracy: true, timeout: 10000 });
+                    showUI('error', "定位失敗", "請確認手機 GPS 已開啟。");
+                }, { enableHighAccuracy: true });
 
             } catch (err) {
-                showError("系統錯誤", err.message);
+                showUI('error', "系統錯誤", err.message);
             }
         }
 
-        // --- UI 控制函式 ---
-        function updateStep(num) {
-            // 把該步驟變成 active，之前的變成 done
-            for (let i = 1; i <= 3; i++) {
-                const el = document.getElementById(`step${i}`);
-                el.classList.remove('active');
-                if (i < num) el.classList.add('done');
-                if (i === num) el.classList.add('active');
+        // --- 核心互動邏輯 ---
+        async function handleResult(data) {
+            
+            // 準備要發送給聊天室的訊息陣列
+            let messagesToSend = [];
+
+            if (data.status === 'success') {
+                showUI('success', "打卡成功", data.message);
+                messagesToSend.push({ type: 'text', text: "✅ " + data.message });
+            } 
+            else if (data.status === 'warning') {
+                showUI('warning', "注意", data.message);
+                // 警告訊息也發送回聊天室 (例如重複打卡)
+                messagesToSend.push({ type: 'text', text: data.message });
+            } 
+            else { // error (例如距離太遠)
+                showUI('error', "打卡失敗", data.message);
+                messagesToSend.push({ type: 'text', text: data.message });
+                
+                // 如果有座標，多傳送一張地圖給使用者看
+                if (data.lat && data.lng) {
+                    messagesToSend.push({
+                        type: 'location',
+                        title: '打卡位置',
+                        address: '系統偵測到的位置',
+                        latitude: data.lat,
+                        longitude: data.lng
+                    });
+                }
             }
+
+            // 6. 執行 LIFF 發送 (免費 API)
+            try {
+                if (liff.isInClient()) {
+                    await liff.sendMessages(messagesToSend);
+                }
+            } catch (err) {
+                console.error("發送訊息失敗", err);
+                // 即使發送失敗，畫面已經顯示結果，所以不影響流程
+            }
+
+            // 7. 自動關閉
+            setTimeout(() => { liff.closeWindow(); }, 2500);
         }
 
-        function showSuccess() {
-            // 完成所有步驟
-            document.getElementById('step3').classList.add('done');
-            document.getElementById('step3').classList.remove('active');
-            
+        // --- UI 切換 ---
+        function showUI(type, title, msg) {
             uiSpinner.style.display = 'none';
-            uiSuccess.style.display = 'block';
-            
-            uiTitle.innerText = "✅ 打卡成功";
-            uiSubtitle.innerText = "視窗將在 2 秒後自動關閉";
-            
-            setTimeout(() => { liff.closeWindow(); }, 2000);
-        }
-
-        function showError(title, msg) {
-            uiSpinner.style.display = 'none';
-            uiError.style.display = 'block';
             uiTitle.innerText = title;
-            uiTitle.style.color = "#FF4B4B";
-            uiSubtitle.innerText = msg;
+            uiMsg.innerText = msg;
             
-            // 失敗時所有步驟變淡
-            document.querySelector('.steps').style.opacity = '0.3';
+            document.getElementById('iconSuccess').style.display = 'none';
+            document.getElementById('iconError').style.display = 'none';
+            document.getElementById('iconWarning').style.display = 'none';
+
+            if (type === 'success') {
+                document.getElementById('iconSuccess').style.display = 'block';
+                uiTitle.style.color = "var(--primary)";
+            } else if (type === 'warning') {
+                document.getElementById('iconWarning').style.display = 'block';
+                uiTitle.style.color = "var(--warning)";
+            } else {
+                document.getElementById('iconError').style.display = 'block';
+                uiTitle.style.color = "var(--error)";
+            }
         }
 
-        // 啟動程式
         window.onload = main;
     </script>
 </body>
