@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>打卡系統</title>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #ffffff; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #00b900; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #status { color: #333; font-size: 16px; text-align: center; padding: 0 20px;}
+    </style>
+</head>
+<body>
+    <div class="loader" id="loader"></div>
+    <div id="status">系統啟動中...</div>
+
+    <script>
+        const statusEl = document.getElementById('status');
+        const loaderEl = document.getElementById('loader');
+
+        // 🟢 關鍵修正 1：這裡負責讀取你在 LINE 按鈕網址裡設定的 ?type=...
+        const urlParams = new URLSearchParams(window.location.search);
+        // 如果網址有 ?type=clock_in，這裡就會抓到 'clock_in'
+        const actionType = urlParams.get('type'); 
+
+        async function main() {
+            try {
+                // 初始化 LIFF
+                await liff.init({ liffId: "2008773653-mSfZM2jC" }); 
+                
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                    return;
+                }
+
+                // 顯示目前狀態給使用者看
+                let statusText = "定位中...";
+                if (actionType === 'clock_in') statusText = "☀️ 正在打「上班卡」...";
+                if (actionType === 'clock_out') statusText = "🌙 正在打「下班卡」...";
+                statusEl.innerText = statusText;
+
+                navigator.geolocation.getCurrentPosition(async (pos) => {
+                    statusEl.innerText = "資料傳送中...";
+
+                    // 傳送資料給 n8n
+                    await fetch("https://wiselife.zeabur.app/webhook/31ef8052-3ce3-4ca0-893a-71da98525654", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            userId: liff.getContext().userId,
+                            latitude: pos.coords.latitude,
+                            longitude: pos.coords.longitude,
+                            source: 'LIFF_AUTO',
+                            // 🟢 關鍵修正 2：把抓到的意圖 (clock_in/out) 傳給 n8n
+                            type: actionType || 'auto' 
+                        })
+                    });
+
+                    statusEl.innerText = "✅ 處理完成！";
+                    loaderEl.style.display = 'none';
+                    setTimeout(() => { liff.closeWindow(); }, 1500);
+                    
+                }, (err) => {
+                    statusEl.innerText = "❌ 定位失敗：請允許位置權限。";
+                }, { enableHighAccuracy: true });
+
+            } catch (err) {
+                statusEl.innerText = "錯誤: " + err.message;
+            }
+        }
+        main();
+    </script>
+</body>
+</html>
