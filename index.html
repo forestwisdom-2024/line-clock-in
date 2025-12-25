@@ -1,56 +1,193 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>打卡除錯模式</title>
+    <title>WiseLife 打卡系統</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        body { font-family: sans-serif; padding: 20px; word-break: break-all; }
-        #debug { background: #eee; padding: 10px; border-radius: 5px; margin-bottom: 20px; font-size: 12px; }
-        .btn { padding: 10px 20px; background: #00b900; color: white; border: none; border-radius: 5px; font-size: 16px; }
+        :root {
+            --primary-color: #06C755; /* LINE Green */
+            --error-color: #FF4B4B;
+            --bg-color: #F4F6F9;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --sub-text: #888888;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: var(--text-color);
+        }
+
+        .card {
+            background: var(--card-bg);
+            width: 85%;
+            max-width: 400px;
+            padding: 40px 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        /* ICON 動畫區 */
+        .icon-container {
+            height: 80px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 讀取圈圈 */
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        /* 成功勾勾 (預設隱藏) */
+        .success-icon {
+            display: none;
+            color: var(--primary-color);
+            font-size: 60px;
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* 失敗叉叉 (預設隱藏) */
+        .error-icon {
+            display: none;
+            color: var(--error-color);
+            font-size: 60px;
+            animation: shake 0.5s;
+        }
+
+        h2 { margin: 0 0 10px 0; font-size: 24px; font-weight: 700; }
+        p { margin: 0 0 30px 0; color: var(--sub-text); font-size: 14px; }
+
+        /* 進度步驟條 */
+        .steps {
+            text-align: left;
+            margin-top: 20px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+
+        .step-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            opacity: 0.4;
+            transition: opacity 0.3s;
+        }
+
+        .step-item.active { opacity: 1; font-weight: bold; }
+        .step-item.done { opacity: 1; color: var(--primary-color); }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            background: #ddd;
+            border-radius: 50%;
+            margin-right: 15px;
+            transition: background 0.3s;
+        }
+
+        .step-item.active .dot { background: var(--primary-color); box-shadow: 0 0 0 3px rgba(6, 199, 85, 0.2); }
+        .step-item.done .dot { background: var(--primary-color); }
+
+        /* 動畫 Keyframes */
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes popIn { 0% { transform: scale(0); } 80% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+
     </style>
 </head>
 <body>
-    <h3>🔍 參數診斷中</h3>
-    
-    <div id="debug">正在讀取網址...</div>
-    <div id="status">準備中...</div>
+
+    <div class="card">
+        <div class="icon-container">
+            <div class="spinner" id="spinner"></div>
+            <div class="success-icon" id="successIcon">✓</div>
+            <div class="error-icon" id="errorIcon">✕</div>
+        </div>
+
+        <h2 id="title">打卡準備中...</h2>
+        <p id="subtitle">請稍候，系統正在處理您的請求</p>
+
+        <div class="steps">
+            <div class="step-item active" id="step1">
+                <div class="dot"></div>
+                <span>1. 初始化系統</span>
+            </div>
+            <div class="step-item" id="step2">
+                <div class="dot"></div>
+                <span>2. 取得 GPS 定位</span>
+            </div>
+            <div class="step-item" id="step3">
+                <div class="dot"></div>
+                <span>3. 上傳打卡資料</span>
+            </div>
+        </div>
+    </div>
 
     <script>
-        const debugEl = document.getElementById('debug');
-        const statusEl = document.getElementById('status');
-
-        // 1. 強制印出完整網址，確認有沒有 ?type=clock_in
-        const currentURL = window.location.href;
-        const searchParams = window.location.search;
+        // --- 設定區 ---
+        const LIFF_ID = "2008773653-mSfZM2jC"; // 你的 LIFF ID
+        // 你的 n8n 正式網址
+        const N8N_URL = "https://wiselife.zeabur.app/webhook/31ef8052-3ce3-4ca0-893a-71da98525654"; 
         
-        // 顯示在螢幕上
-        debugEl.innerHTML = `
-            <b>完整網址:</b> ${currentURL} <br><br>
-            <b>參數部分:</b> ${searchParams || "無參數"}
-        `;
+        // --- 變數區 ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const actionType = urlParams.get('type') || 'auto';
+        
+        const uiTitle = document.getElementById('title');
+        const uiSubtitle = document.getElementById('subtitle');
+        const uiSpinner = document.getElementById('spinner');
+        const uiSuccess = document.getElementById('successIcon');
+        const uiError = document.getElementById('errorIcon');
 
-        const urlParams = new URLSearchParams(searchParams);
-        const actionType = urlParams.get('type');
+        // 設定標題文字
+        if (actionType === 'clock_in') {
+            uiTitle.innerText = "☀️ 上班打卡中";
+        } else if (actionType === 'clock_out') {
+            uiTitle.innerText = "🌙 下班打卡中";
+        } else {
+            uiTitle.innerText = "📍 自動打卡中";
+        }
 
+        // --- 核心邏輯 ---
         async function main() {
             try {
-                await liff.init({ liffId: "2008773653-mSfZM2jC" }); // 確認 ID 正確
+                // Step 1: 初始化
+                updateStep(1);
+                await liff.init({ liffId: LIFF_ID });
                 
                 if (!liff.isLoggedIn()) {
                     liff.login();
                     return;
                 }
 
-                // 顯示讀取到的結果
-                statusEl.innerHTML = `
-                    讀取到的意圖: <b>${actionType || '未偵測到 (auto)'}</b><br>
-                    正在定位...
-                `;
-
+                // Step 2: 定位
+                updateStep(2);
+                uiSubtitle.innerText = "正在向衛星取得您的精確位置...";
+                
                 navigator.geolocation.getCurrentPosition(async (pos) => {
-                    await fetch("https://wiselife.zeabur.app/webhook/31ef8052-3ce3-4ca0-893a-71da98525654", {
+                    // Step 3: 傳送
+                    updateStep(3);
+                    uiSubtitle.innerText = "正在寫入資料庫...";
+
+                    const response = await fetch(N8N_URL, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
@@ -58,18 +195,63 @@
                             latitude: pos.coords.latitude,
                             longitude: pos.coords.longitude,
                             source: 'LIFF_AUTO',
-                            type: actionType || 'auto'
+                            type: actionType
                         })
                     });
-                    statusEl.innerText = "✅ 資料已送出";
-                    setTimeout(() => { liff.closeWindow(); }, 3000); // 延長關閉時間讓你看清楚
-                });
+
+                    if (response.ok) {
+                        showSuccess();
+                    } else {
+                        throw new Error("伺服器回應錯誤");
+                    }
+                    
+                }, (err) => {
+                    showError("定位失敗", "請至手機設定開啟 GPS 權限");
+                }, { enableHighAccuracy: true, timeout: 10000 });
 
             } catch (err) {
-                statusEl.innerText = "錯誤: " + err.message;
+                showError("系統錯誤", err.message);
             }
         }
-        main();
+
+        // --- UI 控制函式 ---
+        function updateStep(num) {
+            // 把該步驟變成 active，之前的變成 done
+            for (let i = 1; i <= 3; i++) {
+                const el = document.getElementById(`step${i}`);
+                el.classList.remove('active');
+                if (i < num) el.classList.add('done');
+                if (i === num) el.classList.add('active');
+            }
+        }
+
+        function showSuccess() {
+            // 完成所有步驟
+            document.getElementById('step3').classList.add('done');
+            document.getElementById('step3').classList.remove('active');
+            
+            uiSpinner.style.display = 'none';
+            uiSuccess.style.display = 'block';
+            
+            uiTitle.innerText = "✅ 打卡成功";
+            uiSubtitle.innerText = "視窗將在 2 秒後自動關閉";
+            
+            setTimeout(() => { liff.closeWindow(); }, 2000);
+        }
+
+        function showError(title, msg) {
+            uiSpinner.style.display = 'none';
+            uiError.style.display = 'block';
+            uiTitle.innerText = title;
+            uiTitle.style.color = "#FF4B4B";
+            uiSubtitle.innerText = msg;
+            
+            // 失敗時所有步驟變淡
+            document.querySelector('.steps').style.opacity = '0.3';
+        }
+
+        // 啟動程式
+        window.onload = main;
     </script>
 </body>
 </html>
